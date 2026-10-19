@@ -29,9 +29,12 @@ jobs:
           Copy-Item README.md artifacts\Harbor-win-x64\
           Copy-Item LICENSE artifacts\Harbor-win-x64\
           Copy-Item data\NOTICE.txt artifacts\Harbor-win-x64\OUI-NOTICE.txt
+          Copy-Item data\COPYING.WIRESHARK artifacts\Harbor-win-x64\
+          git archive HEAD -o artifacts\Harbor-win-x64\Harbor-source.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Source archive failed' }
           [System.IO.Compression.ZipFile]::CreateFromDirectory("$pwd\artifacts\Harbor-win-x64", "$pwd\artifacts\Harbor-win-x64.zip")
           Expand-Archive artifacts\Harbor-win-x64.zip artifacts\inspect
-          foreach ($file in 'Harbor.exe','Harbor.dll','Harbor.Core.dll','coreclr.dll','PresentationFramework.dll','README.md','LICENSE','OUI-NOTICE.txt') {
+          foreach ($file in 'Harbor.exe','Harbor.dll','Harbor.Core.dll','coreclr.dll','PresentationFramework.dll','README.md','LICENSE','OUI-NOTICE.txt','COPYING.WIRESHARK','Harbor-source.zip') {
             if (-not (Test-Path "artifacts\inspect\$file")) { throw "Package missing $file" }
           }
           Get-FileHash artifacts\Harbor-win-x64.zip -Algorithm SHA256 | Format-List

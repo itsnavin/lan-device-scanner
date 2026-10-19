@@ -30,6 +30,7 @@ public partial class MainWindow : Window
         view.Filter = Matches;
         view.SortDescriptions.Add(new(nameof(Device.IpNumber), ListSortDirection.Ascending));
         DevicesGrid.ItemsSource = view;
+        VendorCoverage.Text = $"{VendorLookup.Count:N0} offline Wireshark assignments (/24, /28, /36; Aug 2024 snapshot). Longest-prefix match. Registrant is not verified brand/model. Randomized MACs stay unknown; Kasa claims remain separate.";
         Closing += OnClosing;
         if (demoMode) LoadDemo();
         else RefreshAdapters();
@@ -105,25 +106,28 @@ public partial class MainWindow : Window
         ErrorPanel.Header = "Operation notices (0)";
         cancellation = new();
         SetBusy(true);
-        var progress = new Progress<ScanUpdate>(update =>
+        var progress = new UiProgress(update => Dispatcher.Invoke(() =>
         {
             if (update.Device is { } device)
             {
                 var old = devices.FirstOrDefault(d => d.Ip == device.Ip);
+                bool selected = (DevicesGrid.SelectedItem as Device)?.Ip == device.Ip;
                 if (old is null) devices.Add(device);
                 else devices[devices.IndexOf(old)] = device;
+                if (selected) DevicesGrid.SelectedItem = device;
                 Counts();
             }
             if (update.Error is not null) Notice(update.Error);
             ScanProgress.Value = update.Completed * 100d / update.Total;
             StatusText.Text = $"Scanning {scope.Cidr}  |  {update.Completed} / {update.Total} checked  |  {devices.Count} observations";
-        });
+        }));
         try
         {
             await new Scanner(new WindowsProbe()).RunAsync(scope, adapter, options, progress, cancellation.Token);
             partialResults = errors > 0;
             resultStatus = errors > 0 ? "completed-with-notices" : "completed";
-            StatusText.Text = $"Finished {scope.Cidr}. {devices.Count} observations; {errors} notices. This is not an exhaustive inventory.";
+            StatusText.Text = $"Finished {scope.Cidr}. {devices.Count} observations; {devices.Count(d => d.Hostname is not null || d.Alias is not null)} with names/aliases; {errors} notices. " +
+                (options.ReverseDns ? "Names may not be published by every device." : "Hostname lookup was OFF; enable it before the next scan if desired.");
             ScanProgress.Value = 100;
         }
         catch (OperationCanceledException) { resultStatus = "canceled"; StatusText.Text = $"Canceled. {devices.Count} partial observations retained; {errors} notices."; }
@@ -134,6 +138,7 @@ public partial class MainWindow : Window
             cancellation.Dispose();
             cancellation = null;
             SetBusy(false);
+            UpdateInspector();
         }
     }
 
@@ -163,7 +168,7 @@ public partial class MainWindow : Window
     {
         if (item is not Device d) return false;
         string query = Search.Text.Trim();
-        bool text = string.Join(" ", d.Ip, d.Mac, d.Vendor, d.Hostname, d.Model, d.Role).Contains(query, StringComparison.OrdinalIgnoreCase);
+        bool text = string.Join(" ", d.Ip, d.Mac, d.Vendor, d.Hostname, d.Alias, d.Model, d.Role, d.ServiceVendor).Contains(query, StringComparison.OrdinalIgnoreCase);
         return text && (StatusFilter.SelectedIndex switch
         {
             1 => d.Responded,
@@ -212,10 +217,14 @@ public partial class MainWindow : Window
         ScopeHint.Text = "Synthetic fixture data only. Refresh adapters to leave demo; a real scan still requires confirmation.";
         devices.Clear();
         var now = DateTimeOffset.UtcNow;
-        devices.Add(new("192.168.50.1", "00:00:00:00:00:01", "Unknown", "demo-router", null, "Gateway", true, now, now, "DEMO: simulated ICMP + neighbor cache", 2));
-        devices.Add(new("192.168.50.20", "02:00:00:00:00:20", "TP-Link (self-reported Kasa)", null, "DEMO HS100", "Device", true, now, now, "DEMO: simulated legacy Kasa get_sysinfo", 8));
-        devices.Add(new("192.168.50.31", "02:00:00:00:00:31", "Unknown", null, null, "Device", false, null, now, "DEMO: stale neighbor cache; no response"));
-        devices.Add(new("192.168.50.12", null, "Unknown", "demo-workstation", null, "This PC", true, now, now, "DEMO: simulated ICMP response", 1));
+        devices.Add(new("192.168.50.1", "02:00:00:00:00:01", "Unknown", "demo-router", null, "Gateway", true, now, now, "DEMO: simulated ICMP + neighbor cache", 2,
+            NameEvidence: "DEMO reverse DNS result"));
+        devices.Add(new("192.168.50.20", "50:C7:BF:00:00:20", VendorLookup.Lookup("50:C7:BF:00:00:20"), null, "DEMO HS100", "Device", true, now, now, "DEMO: simulated legacy Kasa get_sysinfo", 8,
+            Alias: "Demo desk plug", NameEvidence: "Not queried: reverse DNS disabled", ServiceVendor: "TP-Link (legacy Kasa self-report)"));
+        devices.Add(new("192.168.50.31", "24:A1:60:00:00:31", VendorLookup.Lookup("24:A1:60:00:00:31"), null, null, "Device", false, null, now, "DEMO: stale neighbor cache; no response",
+            NameEvidence: "Not queried: cache observation has no confirmed response"));
+        devices.Add(new("192.168.50.12", "02:00:00:00:00:12", "Unknown", "demo-workstation", null, "This PC", true, now, now, "DEMO: simulated ICMP and local interface metadata", 1,
+            NameEvidence: "Local Windows computer name (DEMO)", MacEvidence: "Local Windows adapter physical address (DEMO)"));
         Counts();
         DevicesGrid.SelectedIndex = 0;
         StatusText.Text = "DEMO MODE - all four observations are synthetic. No network calls or adapter enumeration were made.";
@@ -232,6 +241,10 @@ public partial class MainWindow : Window
         Search.Text = "HS100";
         if (view.Cast<Device>().Count() != 1) throw new InvalidOperationException("Search binding failed.");
         Search.Clear();
+        Search.Text = "Demo desk plug";
+        if (view.Cast<Device>().Single().DisplayName != "Demo desk plug")
+            throw new InvalidOperationException("Kasa alias display/search regressed.");
+        Search.Clear();
         StatusFilter.SelectedIndex = 2;
         if (view.Cast<Device>().Count() != 1) throw new InvalidOperationException("Status filter failed.");
         StatusFilter.SelectedIndex = 0;
@@ -243,13 +256,44 @@ public partial class MainWindow : Window
             throw new InvalidOperationException("Light theme is not applied to the window.");
         Theme_Click(this, new RoutedEventArgs());
         if (DetailBody.Text.Length < 10) throw new InvalidOperationException("Inspector failed.");
+        var adapter = new Adapter("fixture", "Fixture Ethernet", "192.168.50.12", 24, 3, "192.168.50.1", "00:11:22:33:44:55");
+        Adapters.ItemsSource = new[] { adapter };
+        Adapters.SelectedIndex = 0;
+        Adapters.ApplyTemplate();
+        Adapters.UpdateLayout();
+        if (FindVisualText(Adapters).Any(t => t.Contains("Adapter {", StringComparison.Ordinal)) ||
+            !FindVisualText(Adapters).Any(t => t.Contains("Fixture Ethernet", StringComparison.Ordinal)))
+            throw new InvalidOperationException("Adapter selected-item display regressed.");
+        DevicesGrid.SelectedItem = null;
+        resultStatus = "completed";
+        UpdateInspector();
+        if (DetailBody.Text.Contains("Scanning", StringComparison.Ordinal))
+            throw new InvalidOperationException("Completed inspector retained scanning state.");
     }
 
-    private void Device_Selected(object sender, SelectionChangedEventArgs e)
+    private static IEnumerable<string> FindVisualText(DependencyObject parent)
     {
-        if (DevicesGrid.SelectedItem is not Device d) return;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is TextBlock text) yield return text.Text;
+            foreach (string value in FindVisualText(child)) yield return value;
+        }
+    }
+
+    private void Device_Selected(object sender, SelectionChangedEventArgs e) => UpdateInspector();
+
+    private void UpdateInspector()
+    {
+        if (DevicesGrid.SelectedItem is not Device d)
+        {
+            DetailTitle.Text = "Select an observation";
+            DetailBody.Text = resultStatus == "scanning" ? "Scanning. Select a result to inspect its evidence."
+                : $"Scan state: {resultStatus}.\nSelect a row to inspect identity sources and reasons.\n\nNo name is not the same as unreachable. Hostname lookup is optional; devices may not publish names.";
+            return;
+        }
         DetailTitle.Text = d.DisplayName;
-        DetailBody.Text = $"IP ADDRESS\n{d.Ip}\n\nMAC (neighbor evidence only)\n{d.MacDisplay}\n\nVENDOR / CLAIM\n{d.Vendor}\n\nMODEL (self-reported)\n{d.Model ?? "Not available"}\n\nROLE\n{d.Role}\n\nSTATUS\n{d.Status}\n\nLAST RESPONSE (UTC)\n{d.LastSeen?.ToString("u") ?? "Unknown"}\n\nOBSERVED (UTC)\n{d.ObservedAt:u}\n\nLATENCY\n{d.LatencyDisplay}\n\nEVIDENCE\n{d.Evidence}";
+        DetailBody.Text = $"IP ADDRESS\n{d.Ip}\n\nMAC\n{d.MacDisplay}\nSource: {d.MacEvidence}\n\nVENDOR REGISTRANT (NOT MODEL)\n{d.Vendor}\n{VendorLookup.Explain(d.Mac)}\n\nHOSTNAME / SOURCE\n{d.Hostname ?? "No hostname available"}\n{d.NameStatus}\n\nDEVICE ALIAS\n{d.Alias ?? "Not reported"}\n\nMODEL (SELF-REPORTED)\n{d.Model ?? "Not reported; not inferred from vendor"}\n\nSERVICE VENDOR CLAIM\n{d.ServiceVendor ?? "No supported service claim received"}\n\nROLE\n{d.Role}\n\nSTATUS\n{d.Status}\n\nLAST RESPONSE (UTC)\n{d.LastSeen?.ToString("u") ?? "Unknown"}\n\nOBSERVED (UTC)\n{d.ObservedAt:u}\n\nLATENCY\n{d.LatencyDisplay}\n\nEVIDENCE\n{d.Evidence}";
     }
 
     private void Csv_Click(object sender, RoutedEventArgs e) => Save(false);
@@ -284,5 +328,10 @@ public partial class MainWindow : Window
         for (int i = 0; i < keys.Length; i++)
             Application.Current.Resources[keys[i]] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colors[i]));
         ScanButton.Foreground = new SolidColorBrush(light ? Colors.White : (Color)ColorConverter.ConvertFromString("#10251E"));
+    }
+
+    private sealed class UiProgress(Action<ScanUpdate> report) : IProgress<ScanUpdate>
+    {
+        public void Report(ScanUpdate value) => report(value);
     }
 }

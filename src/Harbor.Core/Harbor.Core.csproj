@@ -3,6 +3,6 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\..\data\oui.tsv" LogicalName="Harbor.Oui" />
+    <EmbeddedResource Include="..\..\data\manuf" LogicalName="Harbor.Oui" />
   </ItemGroup>
 </Project>

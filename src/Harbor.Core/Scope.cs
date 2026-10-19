@@ -4,9 +4,10 @@ using System.Net.Sockets;
 
 namespace Harbor.Core;
 
-public sealed record Adapter(string Id, string Name, string Address, int Prefix, int Index, string? Gateway)
+public sealed record Adapter(string Id, string Name, string Address, int Prefix, int Index, string? Gateway, string? Mac = null, string? LocalHostname = null)
 {
     public string Display => $"{Name}  |  {Address}/{Prefix}";
+    public override string ToString() => Display;
     public string SuggestedScope => Scope.Network(Address, Math.Max(Prefix, 24)).Cidr;
 
     public static IReadOnlyList<Adapter> List() =>
@@ -19,7 +20,8 @@ public sealed record Adapter(string Id, string Name, string Address, int Prefix,
                 .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork && Scope.IsPrivate(Scope.Number(a.Address)))
                 .Select(a => new Adapter(n.Id, n.Name, a.Address.ToString(), a.PrefixLength,
                     n.GetIPProperties().GetIPv4Properties().Index,
-                    n.GetIPProperties().GatewayAddresses.FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork)?.Address.ToString())))
+                    n.GetIPProperties().GatewayAddresses.FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork)?.Address.ToString(),
+                    Device.NormalizeMac(n.GetPhysicalAddress().ToString()), Device.Clean(Environment.MachineName))))
             .ToArray();
 }
 

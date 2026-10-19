@@ -7,11 +7,15 @@ namespace Harbor.Core;
 public sealed record Device(
     string Ip, string? Mac, string Vendor, string? Hostname, string? Model,
     string Role, bool Responded, DateTimeOffset? LastSeen, DateTimeOffset ObservedAt,
-    string Evidence, long? Latency = null)
+    string Evidence, long? Latency = null, string? Alias = null,
+    string NameEvidence = "Not queried", string MacEvidence = "Windows neighbor cache",
+    string? ServiceVendor = null)
 {
     public uint IpNumber => Scope.Number(System.Net.IPAddress.Parse(Ip));
-    public string Status => Responded ? "Responded" : "Cache only - unconfirmed";
-    public string DisplayName => Hostname ?? Model ?? (Role == "Device" ? "Unnamed device" : Role);
+    public string Status => Responded ? "Responded" : Role == "This PC" ? "Local interface (not probed)" : "Cache only - unconfirmed";
+    public string DisplayName => Hostname ?? Alias ?? (Role == "Device" ? "No name available" : Role);
+    public string NameStatus => Hostname is not null ? NameEvidence : Alias is not null ? "Legacy Kasa alias (self-reported)" : NameEvidence;
+    public string Identification => Model ?? "No model reported";
     public string MacDisplay => Mac ?? "Not available";
     public string SeenDisplay => LastSeen?.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture) ?? "Unknown (cache only)";
     public string LatencyDisplay => Latency is null ? "-" : $"{Latency} ms";
@@ -33,19 +37,25 @@ public sealed record Device(
     public static Device Merge(Device old, Device next) => next with
     {
         Mac = next.Mac ?? old.Mac,
-        Vendor = next.Vendor == "Unknown" ? old.Vendor : next.Vendor,
+        Vendor = next.Mac is null || next.Mac == old.Mac ? (next.Vendor == "Unknown" ? old.Vendor : next.Vendor) : next.Vendor,
         Hostname = next.Hostname ?? old.Hostname,
         Model = next.Model ?? old.Model,
         Responded = old.Responded || next.Responded,
         LastSeen = next.LastSeen ?? old.LastSeen,
         Latency = next.Latency ?? old.Latency,
+        Alias = next.Alias ?? old.Alias,
+        ServiceVendor = next.ServiceVendor ?? old.ServiceVendor,
+        NameEvidence = next.Hostname is not null ||
+            old.Hostname is null && (!old.Responded || next.Responded) && next.NameEvidence != "Not queried"
+                ? next.NameEvidence : old.NameEvidence,
+        MacEvidence = next.Mac is null ? old.MacEvidence : next.MacEvidence,
         Evidence = string.Join("; ", old.Evidence.Split("; ").Concat(next.Evidence.Split("; ")).Distinct())
     };
 }
 
 public sealed record ScanExport(string? Scope, bool Demo, bool Partial, string Status, int OperationNoticeCount, IReadOnlyList<Device> Devices)
 {
-    public int SchemaVersion => 1;
+    public int SchemaVersion => 2;
     public DateTimeOffset ExportedUtc { get; init; } = DateTimeOffset.UtcNow;
 }
 
@@ -61,10 +71,11 @@ public static class Export
 
     public static string Csv(ScanExport snapshot)
     {
-        var lines = new List<string> { "IP,MAC,Vendor,Hostname,Model,Role,Status,LastSeenUtc,ObservedUtc,Evidence,Scope,Demo,ScanStatus,Partial,OperationNoticeCount" };
+        var lines = new List<string> { "IP,MAC,Vendor,Hostname,Model,Role,Status,LastSeenUtc,ObservedUtc,Evidence,Scope,Demo,ScanStatus,Partial,OperationNoticeCount,Alias,NameStatus,MacSource,ServiceVendor" };
         lines.AddRange(snapshot.Devices.Select(d => string.Join(",", new[] { d.Ip, d.Mac, d.Vendor, d.Hostname, d.Model, d.Role, d.Status,
             d.LastSeen?.ToString("O"), d.ObservedAt.ToString("O"), d.Evidence, snapshot.Scope, snapshot.Demo.ToString(),
-            snapshot.Status, snapshot.Partial.ToString(), snapshot.OperationNoticeCount.ToString(CultureInfo.InvariantCulture) }.Select(Cell))));
+            snapshot.Status, snapshot.Partial.ToString(), snapshot.OperationNoticeCount.ToString(CultureInfo.InvariantCulture),
+            d.Alias, d.NameStatus, d.MacEvidence, d.ServiceVendor }.Select(Cell))));
         return string.Join("\r\n", lines) + "\r\n";
     }
 

@@ -66,8 +66,9 @@ skipped with an operation notice. Avoid changing adapters/routes during a scan.
 | ICMP | One bounded echo request per selected target; records response time | No reply is not "offline"; firewalls can block ICMP |
 | Neighbor cache | Reads the Windows IPv4 neighbor table for the chosen interface, before and after probes | A cache entry can be stale; its age/last response is unknown |
 | MAC | Displays only an actual six-byte Windows neighbor-table address | No fabricated MAC from a protocol response, hostname or IP |
-| OUI | Offline five-prefix fact table: three TP-Link, one Espressif, one Raspberry Pi | Not comprehensive; registrant may be a chipset/bridge supplier, not device brand |
-| Reverse DNS | Optional bounded lookup, off by default; sanitized hostname only | A name is not verified identity; configured DNS resolver may be outside the LAN |
+| This PC | Selected adapter's actual Windows physical address and local computer name | Local metadata is separate from remote response evidence |
+| OUI | Offline Wireshark registry: over 52,000 assignments, longest-prefix /36, /28, /24 matching | Not exhaustive/current; registrant may be a chipset/bridge supplier, not device brand |
+| Reverse DNS | Optional 800 ms cancellable lookup per responding host, off by default; sanitized hostname only | A name is not verified identity; configured DNS resolver may be outside the LAN |
 | Legacy Kasa | Optional unicast UDP 9999 XOR-encoded `system.get_sysinfo`, no TCP prefix; validates bounded JSON response | Unauthenticated self-reported model/alias, not cryptographically verified identity |
 | Gateway / this PC | Labels addresses matching selected adapter metadata | Roles are local configuration, not product detection |
 
@@ -81,13 +82,48 @@ Harbor never requests credentials, logs into devices, sends control/toggle
 commands, tries default passwords, bypasses authentication, or probes broad
 port ranges. SSDP and mDNS broadcasts are not implemented.
 
-MAC OUI lookup is strictly offline. The deliberately tiny, manually selected
-fact table is embedded in the app; unmatched or locally administered MACs stay
-**Unknown**. See [data/NOTICE.txt](data/NOTICE.txt) for its CC0 dedication,
-per-row provenance, scope and update rules. This is not an exhaustive IEEE
-database redistribution. Contributions should verify individual facts and
-preserve provenance; importing a larger dataset requires a confirmed
-redistribution license. No MAC addresses are sent to vendor APIs.
+MAC OUI lookup is strictly offline. The embedded **Wireshark 4.0.17 `manuf`**
+registry replaces the original five-prefix table. It contains **52,417**
+/24, /28 and /36 source entries (the effective count is displayed in the app
+after excluding special, multicast and locally administered ranges).
+The current effective lookup contains **52,197 assignments**: 36,011 /24,
+5,479 /28, and 10,707 /36 entries.
+Matching uses the longest assignment, so an MA-S /36 or MA-M /28 registrant
+takes precedence over the parent MA-L /24 block owner. Unmatched, multicast,
+invalid or locally administered/randomized MACs stay **Unknown**.
+
+This is an established **GPL-2.0-or-later** Wireshark dataset, pinned to
+commit `882448bcf104995d64853a11b0d160783668d2fa`, with upstream registry
+source dates of **August 25, 2024**; it can miss newer assignments.
+The unmodified original file, copyright, source references and GPL text
+are retained. See [data/NOTICE.txt](data/NOTICE.txt) for SHA256, provenance,
+license and update instructions. No MAC addresses or inventory are sent
+to vendor APIs, including during updates.
+
+### Why some devices still have no name
+
+Reachability, address-block registrant, hostname, alias and product model
+are different facts. An ICMP reply provides **no hostname or model**. Before
+scanning, optionally check **Look up hostnames (reverse DNS, optional)**;
+the authorization dialog will show it enabled. This is not silently turned
+on by this update. DNS names depend on the router/resolver's PTR records
+and may not exist even for a working device.
+
+The **NAME SOURCE / REASON** column and inspector distinguish lookup
+disabled, no record, timeout, failure, local computer name and a returned
+resolver hostname. A Kasa-reported alias is now used as the device's display
+name when no hostname is available; model and service vendor claims have
+their own fields instead of being presented as a hostname or OUI result.
+Vendor identity is never fabricated from a hostname or model.
+
+SSDP/mDNS and modern TP-Link discovery were evaluated but are **not enabled
+or implemented** by this update. They require additional multicast/
+broadcast scope handling and hostile-packet/protocol validation; many
+devices do not announce a name through them anyway. Rather than secretly
+adding traffic or fetching untrusted device description URLs, this release
+keeps the authorized ICMP/legacy Kasa/optional DNS paths. No login or
+authentication bypass is attempted. Devices without a published DNS name
+or supported service alias will truthfully remain **No name available**.
 
 Guest/client isolation, VLANs, routed networks, sleeping devices, firewalls,
 Wi-Fi power saving and stale neighbor caches limit visibility. Routed neighbors
@@ -127,10 +163,14 @@ dotnet publish src\Harbor.Desktop -c Release -r win-x64 --self-contained true -o
 artifacts\Harbor-win-x64\Harbor.exe --smoke-test
 Copy-Item README.md,LICENSE artifacts\Harbor-win-x64\
 Copy-Item data\NOTICE.txt artifacts\Harbor-win-x64\OUI-NOTICE.txt
+Copy-Item data\COPYING.WIRESHARK artifacts\Harbor-win-x64\
+git archive HEAD -o artifacts\Harbor-win-x64\Harbor-source.zip
 [System.IO.Compression.ZipFile]::CreateFromDirectory("$pwd\artifacts\Harbor-win-x64", "$pwd\artifacts\Harbor-win-x64.zip")
 ```
 
 The self-contained x64 ZIP is a folder deployment, not a single executable.
+Full application/data/build source is included in every CI-generated binary
+ZIP as `Harbor-source.zip`; build packages from a committed, clean source tree.
 Do not enable trimming for WPF. An ARM64 build can be generated with
 `-r win-arm64` but is not part of the validated x64 build workflow.
 
@@ -169,6 +209,10 @@ Protocol research references (not linked runtime dependencies):
   **GPL-3.0-or-later**, not MIT. No python-kasa source is copied, bundled or imported;
   Harbor has an independent, narrow wire-format implementation.
 
-Harbor source is MIT licensed. The independently curated five-row OUI fact
-selection has the separate dedication in `data/NOTICE.txt`; bundled Microsoft
-.NET runtime components retain their own notices in published packages.
+Original Harbor code is MIT licensed. The embedded Wireshark registry is
+**GPL-2.0-or-later**; the combined desktop distribution is provided under
+GPL-2.0-or-later, with the full corresponding application/data/build source
+in `Harbor-source.zip`, license text in `COPYING.WIRESHARK`, and provenance
+in `OUI-NOTICE.txt`. Original MIT permissions for Harbor code remain in
+`LICENSE`. Bundled Microsoft .NET runtime components retain their separate
+licenses and notices in published packages.

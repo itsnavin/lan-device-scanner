@@ -109,10 +109,21 @@ internal sealed class WindowsProbe : INetworkProbe
         return new(responded, latency, model, alias, evidence, notices);
     }
 
-    public async Task<string?> ResolveAsync(string ip, CancellationToken token)
+    public async Task<NameLookup> ResolveAsync(string ip, CancellationToken token)
     {
-        var entry = await Dns.GetHostEntryAsync(IPAddress.Parse(ip)).WaitAsync(TimeSpan.FromMilliseconds(600), token);
-        var name = Device.Clean(entry.HostName);
-        return string.IsNullOrEmpty(name) ? null : name;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(800);
+        try
+        {
+            var entry = await Dns.GetHostEntryAsync(ip, AddressFamily.InterNetwork, timeout.Token);
+            var name = Device.Clean(entry.HostName);
+            return string.IsNullOrEmpty(name) || IPAddress.TryParse(name, out _)
+                ? new(null, "No reverse DNS hostname returned")
+                : new(name, "Reverse DNS (unverified resolver result)");
+        }
+        catch (SocketException ex) when (ex.SocketErrorCode is SocketError.HostNotFound or SocketError.NoData)
+        { return new(null, "No reverse DNS record (device may not publish a hostname)"); }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        { return new(null, "Reverse DNS timed out", "Resolver did not respond within 800 ms."); }
     }
 }

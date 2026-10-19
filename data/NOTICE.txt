@@ -1,30 +1,48 @@
-Harbor tiny OUI fact table, revision 2026-10-20
+Harbor offline vendor registry
 
-Scope: exactly five manually selected 24-bit prefix/assignee facts.
-This is NOT an exhaustive OUI database, an IEEE database redistribution,
-or proof of any particular device brand/model.
+data/manuf is an UNMODIFIED Wireshark manuf file from Wireshark 4.0.17.
+Source commit: 882448bcf104995d64853a11b0d160783668d2fa
+https://raw.githubusercontent.com/wireshark/wireshark/882448bcf104995d64853a11b0d160783668d2fa/manuf
+Retrieved: 2026-10-20. Upstream IEEE registry source dates: August 25, 2024.
+SHA256: 930B098D2B219F0BD69F6643A0FBD1DF4A21B82EF3AF9B2E4AE71A663D992A5E
 
-The table's original selection, normalized labels and arrangement are
-dedicated to the public domain under CC0 1.0 Universal:
-https://creativecommons.org/publicdomain/zero/1.0/
-To the extent a public-domain dedication is not effective, Harbor's
-contributors grant an irrevocable, worldwide, royalty-free license to
-use, copy, modify and distribute their contributions to this table for
-any purpose, without conditions. No warranty is provided.
-Individual registry assignment facts and vendor names are factual;
-no website text, HTML, addresses, or third-party database compilation
-is redistributed. Trademark rights remain with their owners.
+Copyright 1998 Gerald Combs and Wireshark contributors.
+SPDX-License-Identifier: GPL-2.0-or-later
+The complete license is included as data/COPYING.WIRESHARK (in the
+desktop package: COPYING.WIRESHARK). The upstream file preserves its
+original copyright, provenance, source references and comments.
 
-Provenance: each row includes its public factual reference, individually
-checked on 2026-10-20. The authoritative assignment registry is IEEE:
-https://standards-oui.ieee.org/
-The IEEE CSV endpoint rejected automated retrieval during development,
-so these five facts were individually cross-checked using the cited
-public lookup pages. No statement is made about IEEE licensing and no
-rights in a third-party database are purportedly relicensed here.
+Upstream sources include IEEE OUI/MA-L, MA-M, MA-S, IAB and CID listings
+and Michael Patton's Ethernet codes list. See the unmodified header
+for details. This is established redistributable GPL-licensed Wireshark
+data, not a claim that IEEE's full database is itself CC0.
+The previous five-entry Harbor CC0 selection has been replaced.
 
-Updates are manual and reviewed: verify each new prefix/assignee fact
-with the current IEEE registry, preserve per-row provenance, update
-this revision date and tests, and keep unknowns unknown. Do not import
-an entire third-party database without confirming its redistribution
-license. Never submit a user's MAC addresses to an online lookup.
+There are 52,417 /24, /28 and /36 source rows. Harbor ignores multicast,
+locally administered, full device-address and special non-assignment
+range rows, and matches longest prefix /36 then /28 then /24. The UI
+reports the exact effective entry count. Unknown MACs remain unknown.
+Current effective count: 52,197 (36,011 /24; 5,479 /28; 10,707 /36).
+OUI identifies an address-block registrant, not necessarily product
+brand, manufacturer or model. No online lookup is made at runtime.
+
+The combined desktop distribution is provided under GPL-2.0-or-later
+to satisfy the bundled data's terms; original Harbor code remains
+available under its MIT license in LICENSE. Full corresponding
+application/data/build source is included as Harbor-source.zip in
+the binary package, as well as in the public repository.
+Microsoft runtime components retain their separate upstream notices.
+
+Reproduce the import from the repository root:
+  dotnet run --project tools\UpdateVendors -c Release
+This downloads only the two pinned public upstream files, verifies
+the data SHA256 and GPL identifier and validates minimum coverage.
+It sends no local addresses or device inventory.
+
+To update to a newer snapshot: review an upstream Wireshark release
+or official generated manuf snapshot with its retained GPL license,
+pin its immutable source revision and independently verified SHA256
+in the updater, update this provenance/date/coverage notice, run the
+updater, tests and packaging workflow, review the diff and commit
+the original data and license together. Updates are explicit,
+developer-run operations, never automatic in the desktop app.

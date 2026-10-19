@@ -17,6 +17,7 @@
   <Style x:Key="CellText" TargetType="TextBlock">
    <Setter Property="Margin" Value="10,12"/><Setter Property="VerticalAlignment" Value="Center"/>
    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+   <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
   </Style>
   <Style TargetType="Control">
    <Setter Property="Foreground" Value="{DynamicResource Foreground}"/>
@@ -73,7 +74,8 @@
       </ControlTemplate></ToggleButton.Template>
      </ToggleButton>
      <ContentPresenter Margin="10,8,28,8" IsHitTestVisible="False" VerticalAlignment="Center"
-      Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
+      Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"/>
      <TextBlock Text="{TemplateBinding Tag}" Margin="10,8,28,8" IsHitTestVisible="False" VerticalAlignment="Center" Foreground="{DynamicResource Muted}">
       <TextBlock.Style><Style TargetType="TextBlock">
        <Setter Property="Visibility" Value="Collapsed"/>

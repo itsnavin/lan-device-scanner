@@ -1,7 +1,7 @@
 <Window x:Class="Harbor.Desktop.MainWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="Harbor | Local network explorer" Width="1380" Height="900" MinWidth="1080" MinHeight="740"
+ Title="Harbor 0.2 | Local network explorer" Width="1380" Height="900" MinWidth="1080" MinHeight="740"
  Style="{StaticResource {x:Type Window}}">
  <Grid Margin="28">
   <Grid.RowDefinitions>
@@ -24,16 +24,19 @@
     <TextBlock Text="01  /  CHOOSE YOUR AUTHORIZED NETWORK" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" Margin="0,0,0,12"/>
     <Grid>
      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-     <ComboBox x:Name="Adapters" Tag="Select a private Ethernet or Wi-Fi adapter" DisplayMemberPath="Display" SelectionChanged="Adapter_Changed" AutomationProperties.Name="Local network adapter" Margin="0,0,12,0"/>
+     <ComboBox x:Name="Adapters" Tag="Select a private Ethernet or Wi-Fi adapter" SelectionChanged="Adapter_Changed" AutomationProperties.Name="Local network adapter" Margin="0,0,12,0">
+      <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Display}"/></DataTemplate></ComboBox.ItemTemplate>
+     </ComboBox>
      <TextBox Grid.Column="1" x:Name="Cidr" AutomationProperties.Name="Authorized private IPv4 CIDR" Margin="0,0,12,0"/>
      <Button Grid.Column="2" Content="Refresh adapters" Click="Refresh_Click" x:Name="RefreshButton"/>
     </Grid>
     <WrapPanel Margin="0,8,0,0">
      <CheckBox x:Name="KasaOption" Content="Read-only legacy Kasa discovery (UDP 9999)" IsChecked="True"/>
-     <CheckBox x:Name="DnsOption" Content="Optional reverse DNS"/>
+     <CheckBox x:Name="DnsOption" Content="Look up hostnames (reverse DNS, optional)" ToolTip="Off by default. Queries the configured DNS resolver for responding hosts; names are not guaranteed and resolver may be outside your LAN."/>
     </WrapPanel>
     <TextBlock Text="Private IPv4 only. Max 1,022 hosts. No login, control, cloud lookup, port sweep or background scanning." Foreground="{DynamicResource Muted}" TextWrapping="Wrap"/>
     <TextBlock x:Name="ScopeHint" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+    <TextBlock Text="Names are separate from reachability: enable hostname lookup before scanning. Kasa aliases appear when reported; some devices publish no name." Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/>
    </StackPanel>
   </Border>
   <Grid Grid.Row="2" Margin="0,0,0,18">
@@ -61,10 +64,12 @@
     AutomationProperties.Name="Discovered devices; select a row for evidence details" RowHeaderWidth="0">
     <DataGrid.Columns>
      <DataGridTextColumn Header="DEVICE" Binding="{Binding DisplayName}" Width="*" MinWidth="140" ElementStyle="{StaticResource CellText}"/>
-     <DataGridTextColumn Header="IP ADDRESS" Binding="{Binding Ip}" SortMemberPath="IpNumber" Width="135" ElementStyle="{StaticResource CellText}"/>
-     <DataGridTextColumn Header="VENDOR / CLAIM" Binding="{Binding Vendor}" Width="180" ElementStyle="{StaticResource CellText}"/>
-     <DataGridTextColumn Header="MAC" Binding="{Binding MacDisplay}" Width="155" ElementStyle="{StaticResource CellText}"/>
-     <DataGridTextColumn Header="STATUS" Binding="{Binding Status}" Width="185" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="IP ADDRESS" Binding="{Binding Ip}" SortMemberPath="IpNumber" Width="135" MinWidth="135" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="VENDOR REGISTRANT" Binding="{Binding Vendor}" Width="190" MinWidth="190" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="MAC" Binding="{Binding MacDisplay}" Width="155" MinWidth="155" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="STATUS" Binding="{Binding Status}" Width="185" MinWidth="185" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="MODEL (REPORTED)" Binding="{Binding Identification}" Width="170" MinWidth="170" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="NAME SOURCE / REASON" Binding="{Binding NameStatus}" Width="240" MinWidth="240" ElementStyle="{StaticResource CellText}"/>
     </DataGrid.Columns>
    </DataGrid>
    <Border Grid.Column="1" Background="{DynamicResource Surface}" CornerRadius="12" Padding="20" Margin="16,0,0,0">
@@ -76,7 +81,7 @@
        Text="IP, MAC and service metadata appear here. No response is not evidence that a device is offline."/>
       <Separator Margin="0,18"/>
       <TextBlock Text="ABOUT VENDOR ACCURACY" Foreground="{DynamicResource Muted}" FontWeight="SemiBold"/>
-      <TextBlock Text="The offline OUI table covers only five prefixes (three TP-Link, one Espressif, one Raspberry Pi). Other prefixes stay unknown. OUI identifies a registrant, not necessarily a brand. Kasa metadata is unauthenticated self-report." TextWrapping="Wrap" Margin="0,10,0,0" Foreground="{DynamicResource Muted}"/>
+      <TextBlock x:Name="VendorCoverage" TextWrapping="Wrap" Margin="0,10,0,0" Foreground="{DynamicResource Muted}"/>
      </StackPanel>
     </ScrollViewer>
    </Border>
