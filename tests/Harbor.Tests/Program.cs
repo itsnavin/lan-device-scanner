@@ -47,6 +47,10 @@ Check(VendorLookup.Lookup("50:C7:BF:00:00:01").Contains("TP-LINK", StringCompari
 Check(VendorLookup.Lookup("52:C7:BF:00:00:01") == "Unknown", "locally administered MAC must not inherit OUI");
 Check(VendorLookup.Lookup(null) == "Unknown" && VendorLookup.Lookup("FF:FF:FF:FF:FF:FF") == "Unknown", "missing and multicast have no vendor");
 Check(VendorLookup.Count > 50000 && VendorLookup.Coverage[28] > 5000 && VendorLookup.Coverage[36] > 10000, "broad registry coverage");
+using (var registryBytes = typeof(VendorLookup).Assembly.GetManifestResourceStream("Harbor.Oui")
+    ?? throw new InvalidOperationException("Missing registry resource"))
+    Check(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(registryBytes)) ==
+        "930B098D2B219F0BD69F6643A0FBD1DF4A21B82EF3AF9B2E4AE71A663D992A5E", "embedded registry exactly matches pinned upstream bytes");
 Check(VendorLookup.Lookup("00:1A:11:00:00:01").Contains("Google", StringComparison.Ordinal), "broad Google prefix");
 Check(VendorLookup.Lookup("00:55:DA:50:00:01").Contains("Nanoleaf", StringComparison.Ordinal), "real MA-M prefix");
 var registry = new VendorRegistry(new StringReader("00:11:22\tBase\tBase vendor\n00:11:22:A0:00:00/28\tMedium\tMedium vendor\n00:11:22:AB:C0:00/36\tSmall\tSmall vendor\n"));
