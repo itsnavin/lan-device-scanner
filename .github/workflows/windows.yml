@@ -1,0 +1,43 @@
+name: Windows desktop
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Mock-only engine tests
+        run: dotnet run --project tests\Harbor.Tests -c Release
+      - name: Publish self-contained Windows x64 desktop
+        run: dotnet publish src\Harbor.Desktop -c Release -r win-x64 --self-contained true -o artifacts\Harbor-win-x64
+      - name: Demo startup and bindings smoke test (no discovery)
+        shell: pwsh
+        run: |
+          $app = Start-Process artifacts\Harbor-win-x64\Harbor.exe -ArgumentList '--smoke-test' -PassThru
+          if (-not $app.WaitForExit(30000)) { Stop-Process -Id $app.Id; throw 'Demo startup timed out' }
+          if ($app.ExitCode -ne 0) { throw "Demo startup failed: $($app.ExitCode)" }
+      - name: Package and inspect
+        shell: pwsh
+        run: |
+          Copy-Item README.md artifacts\Harbor-win-x64\
+          Copy-Item LICENSE artifacts\Harbor-win-x64\
+          Copy-Item data\NOTICE.txt artifacts\Harbor-win-x64\OUI-NOTICE.txt
+          [System.IO.Compression.ZipFile]::CreateFromDirectory("$pwd\artifacts\Harbor-win-x64", "$pwd\artifacts\Harbor-win-x64.zip")
+          Expand-Archive artifacts\Harbor-win-x64.zip artifacts\inspect
+          foreach ($file in 'Harbor.exe','Harbor.dll','Harbor.Core.dll','coreclr.dll','PresentationFramework.dll','README.md','LICENSE','OUI-NOTICE.txt') {
+            if (-not (Test-Path "artifacts\inspect\$file")) { throw "Package missing $file" }
+          }
+          Get-FileHash artifacts\Harbor-win-x64.zip -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Harbor-win-x64
+          path: artifacts/Harbor-win-x64.zip
+          if-no-files-found: error
+          retention-days: 30

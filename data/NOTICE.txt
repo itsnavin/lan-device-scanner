@@ -1,0 +1,30 @@
+Harbor tiny OUI fact table, revision 2026-10-20
+
+Scope: exactly five manually selected 24-bit prefix/assignee facts.
+This is NOT an exhaustive OUI database, an IEEE database redistribution,
+or proof of any particular device brand/model.
+
+The table's original selection, normalized labels and arrangement are
+dedicated to the public domain under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+To the extent a public-domain dedication is not effective, Harbor's
+contributors grant an irrevocable, worldwide, royalty-free license to
+use, copy, modify and distribute their contributions to this table for
+any purpose, without conditions. No warranty is provided.
+Individual registry assignment facts and vendor names are factual;
+no website text, HTML, addresses, or third-party database compilation
+is redistributed. Trademark rights remain with their owners.
+
+Provenance: each row includes its public factual reference, individually
+checked on 2026-10-20. The authoritative assignment registry is IEEE:
+https://standards-oui.ieee.org/
+The IEEE CSV endpoint rejected automated retrieval during development,
+so these five facts were individually cross-checked using the cited
+public lookup pages. No statement is made about IEEE licensing and no
+rights in a third-party database are purportedly relicensed here.
+
+Updates are manual and reviewed: verify each new prefix/assignee fact
+with the current IEEE registry, preserve per-row provenance, update
+this revision date and tests, and keep unknowns unknown. Do not import
+an entire third-party database without confirming its redistribution
+license. Never submit a user's MAC addresses to an online lookup.

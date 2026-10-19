@@ -1,0 +1,92 @@
+<Window x:Class="Harbor.Desktop.MainWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="Harbor | Local network explorer" Width="1380" Height="900" MinWidth="1080" MinHeight="740"
+ Style="{StaticResource {x:Type Window}}">
+ <Grid Margin="28">
+  <Grid.RowDefinitions>
+   <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+   <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+  </Grid.RowDefinitions>
+  <DockPanel Margin="0,0,0,24">
+   <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+    <Button Content="Light / dark" Click="Theme_Click" AutomationProperties.Name="Switch color theme"/>
+    <Button Content="Load demo" Click="Demo_Click" x:Name="DemoButton"/>
+    <Button Content="Export CSV" Click="Csv_Click"/><Button Content="Export JSON" Click="Json_Click"/>
+   </StackPanel>
+   <StackPanel>
+    <TextBlock Text="H A R B O R" FontSize="28" FontWeight="Bold"/>
+    <TextBlock Text="Your local network, with the evidence in view." Foreground="{DynamicResource Muted}" Margin="0,5,0,0"/>
+   </StackPanel>
+  </DockPanel>
+  <Border Grid.Row="1" Background="{DynamicResource Surface}" CornerRadius="12" Padding="20" Margin="0,0,0,18">
+   <StackPanel>
+    <TextBlock Text="01  /  CHOOSE YOUR AUTHORIZED NETWORK" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" Margin="0,0,0,12"/>
+    <Grid>
+     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <ComboBox x:Name="Adapters" Tag="Select a private Ethernet or Wi-Fi adapter" DisplayMemberPath="Display" SelectionChanged="Adapter_Changed" AutomationProperties.Name="Local network adapter" Margin="0,0,12,0"/>
+     <TextBox Grid.Column="1" x:Name="Cidr" AutomationProperties.Name="Authorized private IPv4 CIDR" Margin="0,0,12,0"/>
+     <Button Grid.Column="2" Content="Refresh adapters" Click="Refresh_Click" x:Name="RefreshButton"/>
+    </Grid>
+    <WrapPanel Margin="0,8,0,0">
+     <CheckBox x:Name="KasaOption" Content="Read-only legacy Kasa discovery (UDP 9999)" IsChecked="True"/>
+     <CheckBox x:Name="DnsOption" Content="Optional reverse DNS"/>
+    </WrapPanel>
+    <TextBlock Text="Private IPv4 only. Max 1,022 hosts. No login, control, cloud lookup, port sweep or background scanning." Foreground="{DynamicResource Muted}" TextWrapping="Wrap"/>
+    <TextBlock x:Name="ScopeHint" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+   </StackPanel>
+  </Border>
+  <Grid Grid.Row="2" Margin="0,0,0,18">
+   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+   <StackPanel><TextBlock Text="OBSERVED" Foreground="{DynamicResource Muted}"/><TextBlock x:Name="TotalText" Text="0" FontSize="30" FontWeight="SemiBold"/></StackPanel>
+   <StackPanel Grid.Column="1"><TextBlock Text="RESPONDED THIS SCAN" Foreground="{DynamicResource Muted}"/><TextBlock x:Name="RespondedText" Text="0" FontSize="30" FontWeight="SemiBold"/></StackPanel>
+   <StackPanel Grid.Column="2"><TextBlock Text="CACHE ONLY / UNCONFIRMED" Foreground="{DynamicResource Muted}"/><TextBlock x:Name="CacheText" Text="0" FontSize="30" FontWeight="SemiBold"/></StackPanel>
+   <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+    <Button x:Name="ScanButton" Content="Authorize and scan" Click="Scan_Click" Background="{DynamicResource Accent}" Foreground="#10251E" FontWeight="Bold"/>
+    <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click" IsEnabled="False"/>
+   </StackPanel>
+  </Grid>
+  <Grid Grid.Row="3" Margin="0,0,0,14">
+   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="210"/></Grid.ColumnDefinitions>
+   <TextBox x:Name="Search" Tag="Search IP, hostname, MAC, vendor or model..." TextChanged="Filter_Changed" AutomationProperties.Name="Search IP, MAC, hostname, vendor, model or role" ToolTip="Search IP, MAC, hostname, vendor, model or role"/>
+   <ComboBox x:Name="StatusFilter" Grid.Column="1" SelectedIndex="0" SelectionChanged="Status_Changed" Margin="12,0,0,0" AutomationProperties.Name="Filter evidence status">
+    <ComboBoxItem Content="All observations"/><ComboBoxItem Content="Responded"/><ComboBoxItem Content="Cache only"/><ComboBoxItem Content="TP-Link self-report"/>
+   </ComboBox>
+  </Grid>
+  <Grid Grid.Row="4">
+   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
+   <DataGrid x:Name="DevicesGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
+    SelectionMode="Single" SelectionChanged="Device_Selected" HeadersVisibility="Column" GridLinesVisibility="None"
+    Background="{DynamicResource Background}" BorderBrush="{DynamicResource Stroke}" Foreground="{DynamicResource Foreground}"
+    AutomationProperties.Name="Discovered devices; select a row for evidence details" RowHeaderWidth="0">
+    <DataGrid.Columns>
+     <DataGridTextColumn Header="DEVICE" Binding="{Binding DisplayName}" Width="*" MinWidth="140" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="IP ADDRESS" Binding="{Binding Ip}" SortMemberPath="IpNumber" Width="135" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="VENDOR / CLAIM" Binding="{Binding Vendor}" Width="180" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="MAC" Binding="{Binding MacDisplay}" Width="155" ElementStyle="{StaticResource CellText}"/>
+     <DataGridTextColumn Header="STATUS" Binding="{Binding Status}" Width="185" ElementStyle="{StaticResource CellText}"/>
+    </DataGrid.Columns>
+   </DataGrid>
+   <Border Grid.Column="1" Background="{DynamicResource Surface}" CornerRadius="12" Padding="20" Margin="16,0,0,0">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+     <StackPanel>
+      <TextBlock Text="DEVICE INSPECTOR" Foreground="{DynamicResource Accent}" FontWeight="SemiBold" Margin="0,0,0,20"/>
+      <TextBlock x:Name="DetailTitle" Text="Select an observation" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/>
+      <TextBox x:Name="DetailBody" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="0" Margin="0,16,0,0" AutomationProperties.Name="Device details and discovery evidence"
+       Text="IP, MAC and service metadata appear here. No response is not evidence that a device is offline."/>
+      <Separator Margin="0,18"/>
+      <TextBlock Text="ABOUT VENDOR ACCURACY" Foreground="{DynamicResource Muted}" FontWeight="SemiBold"/>
+      <TextBlock Text="The offline OUI table covers only five prefixes (three TP-Link, one Espressif, one Raspberry Pi). Other prefixes stay unknown. OUI identifies a registrant, not necessarily a brand. Kasa metadata is unauthenticated self-report." TextWrapping="Wrap" Margin="0,10,0,0" Foreground="{DynamicResource Muted}"/>
+     </StackPanel>
+    </ScrollViewer>
+   </Border>
+  </Grid>
+  <StackPanel Grid.Row="5" Margin="0,16,0,0">
+   <ProgressBar x:Name="ScanProgress" Height="5" Foreground="{DynamicResource Accent}" Maximum="100"/>
+   <TextBlock x:Name="StatusText" Text="Ready. Nothing is scanned until you confirm a scope." Margin="0,10,0,0" TextWrapping="Wrap"/>
+   <Expander x:Name="ErrorPanel" Header="Operation notices (0)" Margin="0,8,0,0" Foreground="{DynamicResource Muted}">
+    <TextBox x:Name="Errors" IsReadOnly="True" Height="90" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Scan errors and notices"/>
+   </Expander>
+  </StackPanel>
+ </Grid>
+</Window>
